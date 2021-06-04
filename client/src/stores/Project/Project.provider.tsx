@@ -19,7 +19,9 @@ export const ProjectProvider = observer(
     const store = useLocalObservable(() => new ProjectStore());
     const { state } = store;
 
-    store.setProjectId(id)
+    if (!store.getProjectId()) {
+      store.setProjectId(id)
+    }
 
     return (
       <ProjectContext.Provider value={store}>

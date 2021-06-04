@@ -11,3 +11,5 @@ export interface RoleCreationAttributes
 export interface RoleInstance
   extends Sequelize.Model<RoleAttributes, RoleCreationAttributes>,
     RoleAttributes {}
+
+export interface RoleDTO extends RoleAttributes {}

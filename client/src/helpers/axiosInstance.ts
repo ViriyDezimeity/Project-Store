@@ -1,76 +1,105 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { ErrorResponse } from 'diploma';
 import { HttpStatusCode } from '../enums';
 
-class HttpError extends Error {
-  httpStatus?: HttpStatusCode;
-
-  constructor(message?: string, httpStatus?: HttpStatusCode) {
-    super(message);
-    this.httpStatus = httpStatus;
-  }
+export interface IResponse<T> {
+  status: HttpStatusCode;
+  data: T;
 }
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: `http://localhost:5000/api`,
 });
 
-const handleResponse = async <T>(response: AxiosResponse<T>): Promise<T> => {
-  if (response.status === HttpStatusCode.OK) {
-    return response.data as T;
-  } else {
-    throw new HttpError(
-      `Response: [${response.status}] ${response.statusText}`,
-      response.status
-    );
-  }
+const handleResponse = <T>(response: AxiosResponse<T>): IResponse<T> => {
+  return {
+    status: response.status,
+    data: response.data,
+  };
 };
+
+const handleErrorResponse = (error: AxiosError<ErrorResponse>): ErrorResponse => {
+  if (error.response) {
+    return error.response.data;
+  }
+  
+  return {
+    status: HttpStatusCode.BAD_REQUEST,
+    message: 'Unknown Error',
+  }
+}
 
 export const axiosFetchFunction = async <T>(
   url: string,
   requestConfig?: AxiosRequestConfig
-): Promise<T> => {
-  const response: AxiosResponse<T> = await axiosInstance.get(
+): Promise<IResponse<T> | ErrorResponse> => {
+  const response: IResponse<T> | ErrorResponse = await axiosInstance.get(
     url,
     requestConfig
-  );
+  )
+  .then((data: AxiosResponse<T>): IResponse<T> => {
+    return handleResponse<T>(data);
+  })
+  .catch((error: AxiosError): ErrorResponse => {
+    return handleErrorResponse(error);
+  });
 
-  return handleResponse<T>(response);
+  return response;
 };
 
 export const axiosPostFunction = async <T>(
   url: string,
   data?: any,
   requestConfig?: AxiosRequestConfig
-): Promise<T> => {
-  const response: AxiosResponse<T> = await axiosInstance.post(url, data, {
+): Promise<IResponse<T> | ErrorResponse> => {
+  const response: IResponse<T> | ErrorResponse = await axiosInstance.post(url, data, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     ...requestConfig,
+  })
+  .then((data: AxiosResponse<T>): IResponse<T> => {
+    return handleResponse<T>(data);
+  })
+  .catch((error: AxiosError): ErrorResponse => {
+    return handleErrorResponse(error);
   });
 
-  return handleResponse<T>(response);
+  return response;
 };
 
 export const axiosUpdateFunction = async <T>(
   url: string,
   data?: any,
   requestConfig?: AxiosRequestConfig
-): Promise<T> => {
-  const reponse: AxiosResponse<T> = await axiosInstance.put(url, data, {
+): Promise<IResponse<T> | ErrorResponse> => {
+  const response: IResponse<T> | ErrorResponse = await axiosInstance.put(url, data, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     ...requestConfig,
+  })
+  .then((data: AxiosResponse<T>): IResponse<T> => {
+    return handleResponse<T>(data);
+  })
+  .catch((error: AxiosError): ErrorResponse => {
+    return handleErrorResponse(error);
   });
 
-  return handleResponse<T>(reponse);
+  return response;
 };
 
 export const axiosDeleteFunction = async <T>(
   url: string,
   id: string,
   requestConfig?: AxiosRequestConfig
-): Promise<T> => {
-  const reponse: AxiosResponse<T> = await axiosInstance.delete(`${url}/${id}`, {
+): Promise<IResponse<T> | ErrorResponse> => {
+  const response: IResponse<T> | ErrorResponse = await axiosInstance.delete(`${url}/${id}`, {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     ...requestConfig,
+  })
+  .then((data: AxiosResponse<T>): IResponse<T> => {
+    return handleResponse<T>(data);
+  })
+  .catch((error: AxiosError): ErrorResponse => {
+    return handleErrorResponse(error);
   });
-  return handleResponse<T>(reponse);
+
+  return response;
 };

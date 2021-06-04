@@ -17,6 +17,8 @@ import { useForm } from '../../../helpers/useForm';
 import { DepartmentAttributes, UserCreationAttributes } from 'diploma';
 import Form from '../../molecules/Form';
 import { DepartmentsContext } from '../../../stores/Departments';
+import { useSnackbar } from 'notistack';
+import { DatePicker } from '@material-ui/pickers';
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -34,56 +36,110 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+interface IUserCreationErrors {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  mail: string;
+  login: string;
+  password: string;
+  departmentId: string;
+}
+
 const initialFormValues: UserCreationAttributes = {
   firstName: '',
   lastName: '',
-  patronymic: '',
-  dateBirth: new Date(),
-  placeWork: '',
+  patronymic: undefined,
+  dateBirth: undefined,
+  placeWork: undefined,
   phoneNumber: '',
   mail: '',
   login: '',
   password: '',
-  aboutMe: '',
+  aboutMe: undefined,
+  departmentId: ''
+};
+
+const initialErrorValues: IUserCreationErrors = {
+  firstName: '',
+  lastName: '',
+  phoneNumber: '',
+  mail: '',
+  login: '',
+  password: '',
   departmentId: ''
 };
 
 const Registration = observer(
   (): JSX.Element => {
-    const { register, isUserAuthorized } = useStore(AuthenticationContext);
     const classes = useStyles();
 
+    const { enqueueSnackbar } = useSnackbar();
+
+    const { register, isUserAuthorized, getErrorMessage } = useStore(AuthenticationContext);
+    
     const { departments } = useStore(DepartmentsContext);
 
     const [isLoading, setLoadingStatus] = useState(false);
 
-    const validate = (fieldValues = values) => {
+    const validate = (): boolean => {
+      const fieldValues: UserCreationAttributes = values;
+      
       const temp = { ...errors };
-      if ('header' in fieldValues)
-        temp.header = fieldValues.header ? '' : 'Это поле необходимо заполнить.';
+
+      temp.firstName = fieldValues.firstName ? '' : 'Это поле обязательно к заполнению';
+      temp.lastName = fieldValues.lastName ? '' : 'Это поле обязательно к заполнению';
+      temp.phoneNumber = fieldValues.phoneNumber ? '' : 'Это поле обязательно к заполнению';
+      temp.mail = fieldValues.mail ? '' : 'Это поле обязательно к заполнению';
+      temp.login = fieldValues.login ? '' : 'Это поле обязательно к заполнению';
+      temp.password = fieldValues.password ? '' : 'Это поле обязательно к заполнению';
+      temp.departmentId = fieldValues.departmentId ? '' : 'Это поле обязательно к заполнению';
+
       setErrors({
         ...temp,
       });
-      if (fieldValues === values)
+
+      if (fieldValues === values) {
         return Object.values(temp).every((x) => x === '');
+      }
+
+      return false;
     };
   
     const {
       values,
+      setValues,
       errors,
       setErrors,
       handleInputChange,
       resetForm,
-    } = useForm(initialFormValues, true, validate);
+    } = useForm({
+      initialFormValues,
+      initialErrorValues,
+      validate
+    });
   
-    const handleSubmit = (event: React.SyntheticEvent) => {
+    const handleSubmit = async (event: React.SyntheticEvent): Promise<void> => {
       event.preventDefault();
       if (validate()) {
         setLoadingStatus(true);
-        register(values);
-        resetForm();
+        await register(values);
+        const errorMessage: string | null = getErrorMessage();
+        if (errorMessage) {
+          setLoadingStatus(false);
+          enqueueSnackbar(`Ошибка: ${errorMessage}`, { variant: 'error' });
+        }
       }
     };
+
+    const handleDateBirthChange = (date: Date | null): void => {
+      if (date) {
+        setValues({
+          ...values,
+          dateBirth: date
+        })
+      }
+    }
 
     if (isUserAuthorized) {
       return <Redirect to="/" />;
@@ -107,130 +163,94 @@ const Registration = observer(
               <Grid container>
                 <Grid item xs={12}>
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="firstName"
-                    label="Имя"
-                    name="firstName"
-                    autoComplete="firstName"
+                    variant='outlined'
+                    name='firstName'
+                    label='Имя *'
                     value={values.firstName}
-                    autoFocus
                     onChange={handleInputChange}
+                    error={!!errors.firstName}
+                    helperText={errors.firstName}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="lastName"
-                    label="Фамилия"
-                    name="lastName"
-                    autoComplete="lastName"
+                    variant='outlined'
+                    name='lastName'
+                    label='Фамилия *'
                     value={values.lastName}
-                    autoFocus
                     onChange={handleInputChange}
+                    error={!!errors.lastName}
+                    helperText={errors.lastName}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    fullWidth
-                    id="patronymic"
-                    label="Отчество"
-                    name="patronymic"
-                    autoComplete="patronymic"
+                    variant='outlined'
+                    name='patronymic'
+                    label='Отчество'
                     value={values.patronymic}
-                    autoFocus
                     onChange={handleInputChange}
                   />
-                  <TextField
-                    variant="outlined"
+                  <DatePicker
+                    name='dateBegin'
+                    animateYearScrolling
+                    variant="inline"
+                    format="dd/MM/yyyy"
                     margin="normal"
-                    name="dateBirth"
                     label="День рождения"
-                    type="date"
                     value={values.dateBirth}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                    onChange={handleInputChange}
-                    error={errors.dateBirth}
+                    onChange={handleDateBirthChange}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    fullWidth
-                    id="placeWork"
-                    label="Место работы"
-                    name="placeWork"
-                    autoComplete="placeWork"
+                    variant='outlined'
+                    name='placeWork'
+                    label='Место работы'
                     value={values.placeWork}
-                    autoFocus
                     onChange={handleInputChange}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="phoneNumber"
-                    label="Телефон"
-                    name="phoneNumber"
-                    autoComplete="phoneNumber"
+                    variant='outlined'
+                    name='phoneNumber'
+                    label='Телефон *'
                     value={values.phoneNumber}
-                    autoFocus
                     onChange={handleInputChange}
+                    error={!!errors.phoneNumber}
+                    helperText={errors.phoneNumber}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="mail"
-                    label="Электронная почта"
-                    name="mail"
-                    autoComplete="mail"
+                    variant='outlined'
+                    name='mail'
+                    label='Электронная почта *'
+                    type='email'
                     value={values.mail}
-                    autoFocus
                     onChange={handleInputChange}
+                    error={!!errors.mail}
+                    helperText={errors.mail}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    id="login"
-                    label="Никнейм"
-                    name="login"
-                    autoComplete="login"
+                    variant='outlined'
+                    name='login'
+                    label='Логин *'
                     value={values.login}
-                    autoFocus
                     onChange={handleInputChange}
-                  />
-                  <TextField
-                    variant="outlined"
-                    margin="normal"
-                    required
-                    fullWidth
-                    name="password"
-                    label="Пароль"
-                    type="password"
-                    id="password"
-                    autoComplete="current-password"
-                    onChange={handleInputChange}
+                    error={!!errors.login}
+                    helperText={errors.login}
                   />
                   <TextField 
-                    variant="outlined"
-                    margin="normal"
-                    fullWidth
-                    id="aboutMe"
-                    label="О себе"
-                    name="aboutMe"
-                    autoComplete="aboutMe"
-                    value={values.aboutMe}
-                    autoFocus
+                    variant='outlined'
+                    name='password'
+                    label='Пароль *'
+                    type='password'
+                    value={values.password}
                     onChange={handleInputChange}
+                    error={!!errors.password}
+                    helperText={errors.password}
+                  />
+                  <TextField 
+                    variant='outlined'
+                    name='aboutMe'
+                    label='О себе'
+                    value={values.aboutMe}
+                    onChange={handleInputChange}
+                    multiline
+                    rows={5}
+                    rowsMax={10}
                   />
                   <Select
                     native
@@ -240,14 +260,14 @@ const Registration = observer(
                       name: 'departmentId',
                     }}
                     fullWidth
-                    error={errors.departmentId}
+                    error={!!errors.departmentId}
                     variant="outlined"
                     style={{
                       "width": "100%",
                       "margin": "8px",
                     }}
                   >
-                    <option aria-label="None" value="" />
+                    <option aria-label="None" value="" >Выберите факультет</option>
                     {departments?.map((department: DepartmentAttributes) => {
                       return (
                         <option value={department.id}>{department.departmentName}</option>

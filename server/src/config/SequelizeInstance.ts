@@ -14,6 +14,7 @@ class SequelizeInstance {
     SequelizeInstance.instance = new Sequelize(dbName, dbUserName, dbPassword, {
       host: dbHost,
       dialect: 'postgres',
+      logging: false,
     });
   }
 

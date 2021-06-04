@@ -22,6 +22,7 @@ export default (
       token,
       process.env.JWT_SECRET_KEY || 'SECRET_KEY',
     );
+
     req.body.user = decoded;
     next();
   } catch (error) {

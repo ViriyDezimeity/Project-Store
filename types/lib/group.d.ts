@@ -1,4 +1,5 @@
 import * as Sequelize from 'sequelize';
+import { DepartmentDTO } from './department';
 
 export interface GroupAttributes {
   id: string;
@@ -13,3 +14,7 @@ export interface GroupCreationAttributes
 export interface GroupInstance
   extends Sequelize.Model<GroupAttributes, GroupCreationAttributes>,
     GroupAttributes {}
+
+export interface GroupDTO extends GroupAttributes {
+  department: DepartmentDTO;
+}

@@ -8,9 +8,9 @@ import {
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+import { UserAttributes, UserCreationAttributes, UserDTO } from 'diploma';
 import authMiddleware from '../middlewares/auth.middleware';
 import UserController from '../controllers/user.controller';
-import { UserAttributes, UserCreationAttributes } from 'diploma';
 
 const authRouter = Router();
 
@@ -37,7 +37,7 @@ authRouter.post(
       if (!errors.isEmpty()) {
         return res
           .status(400)
-          .json({ message: 'Incorrect request', ...errors });
+          .json({ message: 'Неверный запрос', ...errors });
       }
 
       const user: UserCreationAttributes = req.body;
@@ -51,7 +51,7 @@ authRouter.post(
       if (candidate) {
         return res
           .status(400)
-          .json({ message: `User with email ${user.mail} already exist` });
+          .json({ message: `Пользователь с email ${user.mail} уже существует` });
       }
 
       const hashPassword: string = await bcrypt.hash(user.password, 15);
@@ -66,7 +66,7 @@ authRouter.post(
       }
 
       const token: string = jwt.sign(
-        { id: user.id },
+        { id: result.id },
         process.env.JWT_SECRET_KEY || 'SECRET_KEY',
         { expiresIn: '1h' },
       );
@@ -74,10 +74,10 @@ authRouter.post(
       return res.json({
         token,
         user: {
-          id: user.id,
-          email: user.mail,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          id: result.id,
+          email: result.mail,
+          firstName: result.firstName,
+          lastName: result.lastName,
         },
       });
     } catch (error) {
@@ -99,12 +99,12 @@ authRouter.post(
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: 'Пользователь не найден' });
       }
 
       const isPassValid: boolean = bcrypt.compareSync(password, user.password);
       if (!isPassValid) {
-        return res.status(400).json({ message: 'Invalid password' });
+        return res.status(400).json({ message: 'Неверный email/пароль' });
       }
 
       const token: string = jwt.sign(
@@ -134,14 +134,14 @@ authRouter.get(
   authMiddleware,
   async (req: express.Request, res: express.Response) => {
     try {
-      const user: UserAttributes | null = await UserController.GetOneByCondition({
+      const user: UserDTO | null = await UserController.GetOneByCondition({
         where: {
           id: req.body.user.id,
         },
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: 'Пользователь не найден' });
       }
 
       const token: string = jwt.sign(
@@ -149,6 +149,7 @@ authRouter.get(
         process.env.JWT_SECRET_KEY || 'SECRET_KEY',
         { expiresIn: '1h' },
       );
+
       return res.json({
         token,
         user: {
@@ -156,6 +157,7 @@ authRouter.get(
           email: user.mail,
           firstName: user.firstName,
           lastName: user.lastName,
+          role: user.role.roleName,
         },
       });
     } catch (error) {

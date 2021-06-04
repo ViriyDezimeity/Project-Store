@@ -1,4 +1,6 @@
 import * as Sequelize from 'sequelize';
+import { UserDTO } from './user';
+import { VacancyDTO } from './vacancy';
 
 export interface VacancyUserAttributes {
   vacancyId: string;
@@ -11,3 +13,8 @@ export interface VacancyUserCreationAttributes
 export interface VacancyUserInstance
   extends Sequelize.Model<VacancyUserAttributes, VacancyUserCreationAttributes>,
     VacancyUserAttributes {}
+
+export interface VacancyUserDTO extends VacancyUserAttributes {
+  vacancy: VacancyDTO;
+  user: UserDTO;
+}

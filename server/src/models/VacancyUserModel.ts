@@ -1,6 +1,10 @@
 import * as Sequelize from 'sequelize';
-import { VacancyUserInstance } from 'diploma';
+import {
+  VacancyUserInstance,
+} from 'diploma';
 import SequelizeInstance from '../config/SequelizeInstance';
+import VacancyModel from './VacancyModel';
+import UserModel from './UserModel';
 
 const VacancyUserModel = SequelizeInstance.getSequelizeInstance()
   .define<VacancyUserInstance>(
@@ -26,5 +30,16 @@ const VacancyUserModel = SequelizeInstance.getSequelizeInstance()
   );
 
 VacancyUserModel.removeAttribute('id');
+
+VacancyUserModel.belongsTo(VacancyModel, {
+  as: 'vacancy',
+  foreignKey: 'vacancyId',
+  onDelete: 'CASCADE',
+});
+
+VacancyUserModel.belongsTo(UserModel, {
+  as: 'user',
+  foreignKey: 'userId',
+});
 
 export default VacancyUserModel;

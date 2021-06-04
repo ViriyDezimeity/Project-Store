@@ -1,14 +1,17 @@
 import { makeAutoObservable } from 'mobx';
-import { HttpStatusCode } from '../../enums';
 import {
   axiosFetchFunction,
   axiosPostFunction,
+  IResponse,
 } from '../../helpers/axiosInstance';
 import { UserData, IUserResponse } from './Authentication.interfaces';
-import { UserCreationAttributes } from 'diploma'
+import { ErrorResponse, UserCreationAttributes } from 'diploma'
+import { HttpStatusCode } from '../../enums';
 
 export class AuthenticationStore {
   public state: 'loading' | 'loaded' | 'error' = 'loading';
+
+  private errorMessage: string | null = null;
 
   public userData?: UserData;
 
@@ -19,11 +22,18 @@ export class AuthenticationStore {
     this.fetchUserInfo();
   }
 
-  public register = async (user: UserCreationAttributes): Promise<void> => {
+  public register = async (newUser: UserCreationAttributes): Promise<void> => {
     try {
-      const response: IUserResponse = await axiosPostFunction('/registration', user);
-      this.setAuthState(response.user, response.token);      
+      const response: IResponse<IUserResponse> | ErrorResponse = await axiosPostFunction('/registration', newUser);
 
+      if (response.status !== HttpStatusCode.OK) {
+        this.setErrorMessage((response as ErrorResponse).message);
+        return;
+      }
+      
+      const { user, token } = (response as IResponse<IUserResponse>).data;
+
+      this.setAuthState(user, token);      
       this.state = 'loaded';
     } catch (error) {
       this.setErrorState();
@@ -32,12 +42,19 @@ export class AuthenticationStore {
 
   public login = async (email: string, password: string): Promise<void> => {
     try {
-      const response: IUserResponse = await axiosPostFunction('/login', {
+      const response: IResponse<IUserResponse> | ErrorResponse = await axiosPostFunction('/login', {
         mail: email,
         password,
       });
-      this.setAuthState(response.user, response.token);
 
+      if (response.status !== HttpStatusCode.OK) {
+        this.setErrorMessage((response as ErrorResponse).message);
+        return;
+      }
+
+      const { user, token } = (response as IResponse<IUserResponse>).data;
+
+      this.setAuthState(user, token);
       this.state = 'loaded';
     } catch (error) {
       this.setErrorState();
@@ -48,11 +65,21 @@ export class AuthenticationStore {
     this.resetAuthState();
   };
 
+  public setErrorMessage = (message: string | null): void => {
+    this.errorMessage = message;
+  }
+
+  public getErrorMessage = (): string | null => {
+    const errorMessage: string | null = this.errorMessage;
+    this.setErrorMessage(null);
+    return errorMessage;
+  }
+
   private fetchUserInfo = async (): Promise<void> => {
     try {
       const token: string | null = localStorage.getItem('token');
       if (token !== null) {
-        const response: IUserResponse = await axiosFetchFunction<IUserResponse>(
+        const response: IResponse<IUserResponse> | ErrorResponse = await axiosFetchFunction<IUserResponse>(
           '/auth',
           {
             headers: {
@@ -60,17 +87,23 @@ export class AuthenticationStore {
             },
           }
         );
-        this.setAuthState(response.user, response.token);
-      }
 
+        if (response.status !== HttpStatusCode.OK) {
+          this.setErrorMessage((response as ErrorResponse).message);
+        }
+
+        if (response.status === HttpStatusCode.UNAUTHORIZED) {
+          this.resetAuthState();
+          this.state = 'loaded';
+          return;
+        }
+
+        const { user, token } = (response as IResponse<IUserResponse>).data;
+
+        this.setAuthState(user, token);
+      }
       this.state = 'loaded';
     } catch (error) {
-      if (error.httpStatus === HttpStatusCode.UNAUTHORIZED) {
-        this.resetAuthState();
-        this.state = 'loaded';
-        return;
-      }
-
       console.error(
         'An unexpected error has occurred during loading user data.'
       );
@@ -90,6 +123,7 @@ export class AuthenticationStore {
   }
 
   private resetAuthState(): void {
+    this.setErrorMessage(null);
     this.userData = undefined;
     this.isUserAuthorized = false;
     localStorage.removeItem('token');

@@ -11,3 +11,5 @@ export interface DepartmentCreationAttributes
 export interface DepartmentInstance
   extends Sequelize.Model<DepartmentAttributes, DepartmentCreationAttributes>,
     DepartmentAttributes {}
+
+export interface DepartmentDTO extends DepartmentAttributes {}

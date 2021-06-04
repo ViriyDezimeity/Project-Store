@@ -21,9 +21,7 @@ export const AuthenticationProvider = observer(
     return (
       <AuthenticationContext.Provider value={store}>
         {state === 'loading' && <Loading />}
-        {state === 'error' &&
-          'An error occurred during loading user data, please try again later.'}
-        {state === 'loaded' && children}
+        {state === 'error' || 'loaded' && children}
       </AuthenticationContext.Provider>
     );
   }

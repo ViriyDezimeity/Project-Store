@@ -1,5 +1,10 @@
 import {
-  ProjectAttributes, ProjectCreationAttributes, UserAttributes, VacancyAttributes, VacancyCreationAttributes, VacancyUserAttributes,
+  ProjectCreationAttributes,
+  ProjectDTO,
+  UserDTO,
+  VacancyCreationAttributes,
+  VacancyDTO,
+  VacancyUserDTO,
 } from 'diploma';
 import express, { Router } from 'express';
 import {
@@ -9,10 +14,8 @@ import {
   validationResult,
 } from 'express-validator';
 import ProjectController from '../controllers/project.controller';
-import UserController from '../controllers/user.controller';
 import VacancyController from '../controllers/vacancy.controller.';
-import VacancyUserController from '../controllers/vacancyuser.controller';
-import { ProjectResponse } from '../dto/ProjectDto';
+import vacancyuserController from '../controllers/vacancyuser.controller';
 import authMiddleware from '../middlewares/auth.middleware';
 
 const projectsRouter = Router();
@@ -21,34 +24,9 @@ projectsRouter.get(
   '/',
   async (req: express.Request, res: express.Response) => {
     try {
-      const projects: ProjectAttributes[] = await ProjectController.GetAll();
+      const projects: ProjectDTO[] = await ProjectController.GetAll();
 
-      const resultProjects: (ProjectResponse | null)[] = await Promise.all(
-        projects.map(async (project: ProjectAttributes): Promise<ProjectResponse> => {
-          
-          const manager: UserAttributes | null = await UserController.GetOneByCondition({
-            where: {
-              id: project.manager,
-            },
-          });
-          const team: UserAttributes[] = await UserController.GetTeamByProjectId(project.id);
-          
-          return {
-            id: project.id,
-            title: project.title,
-            description: project.description,
-            customer: project.customer,
-            dateBegin: project.dateBegin,
-            dateEnd: project.dateEnd,
-            controlPoints: project.controlPoints,
-            result: project.result,
-            manager,
-            team,
-          }
-        }),
-      );
-
-      return res.json(resultProjects);
+      return res.json(projects);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -65,58 +43,19 @@ projectsRouter.get(
     try {
       const { id } = req.params;
 
-      const project: ProjectAttributes | null = await ProjectController.GetOneByCondition({
+      const project: ProjectDTO | null = await ProjectController.GetOneByCondition({
         where: {
           id,
         },
       });
 
-      console.log(project);
-
       if (project === null) {
-        return res.json({
-          message: `Project with id ${id} not found`,
+        return res.status(404).json({
+          message: `Проект с id ${id} не найден`,
         });
       }
 
-      const manager: UserAttributes | null = await UserController.GetOneByCondition({
-        where: {
-          id: project.manager,
-        },
-      });
-      const team: UserAttributes[] = await UserController.GetTeamByProjectId(project.id);
-
-      res.json({
-        id: project.id,
-        title: project.title,
-        description: project.description,
-        customer: project.customer,
-        dateBegin: project.dateBegin,
-        dateEnd: project.dateEnd,
-        controlPoints: project.controlPoints,
-        result: project.result,
-        manager,
-        team,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server Error' });
-    }
-  },
-);
-
-projectsRouter.get(
-  '/:id/team',
-  async (
-    req: express.Request<{ id: string }>,
-    res: express.Response,
-  ) => {
-    try {
-      const { id } = req.params;
-
-      const team: UserAttributes[] = await UserController.GetTeamByProjectId(id);
-
-      res.json(team);
+      res.json(project);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -131,13 +70,11 @@ projectsRouter.get(
     res: express.Response,
   ) => {
     try {
-      const { id } = req.params;
-
-      const vacancies: VacancyAttributes[] = await VacancyController.GetAllByCondition({
+      const vacancies: VacancyDTO[] = await VacancyController.GetAllByCondition({
         where: {
-          projectId: id
-        }
-      })
+          projectId: req.params.id,
+        },
+      });
 
       res.json(vacancies);
     } catch (error) {
@@ -151,15 +88,12 @@ projectsRouter.post(
   '/',
   [
     authMiddleware,
-    check('manager', 'Manager Id must be UUID').isUUID(),
     check('customer', 'Customer must be longer than 1 character').isLength({ min: 1 }),
     check('title', 'Title must be longer than 1 character').isLength({ min: 1 }),
     check('controlPoints', 'Control Points must be longer than 1 character').isLength({ min: 1 }),
     check('description', 'Description must be longer than 1 character').isLength({
       min: 1,
     }),
-    check('dateBegin', 'Date begin must be date').isDate(),
-    check('dateEnd', 'Date end must be date').isDate(),
   ],
   async (req: express.Request, res: express.Response) => {
     try {
@@ -168,37 +102,23 @@ projectsRouter.post(
       if (!errors.isEmpty()) {
         return res
           .status(400)
-          .json({ message: 'Incorrect request', ...errors });
+          .json({ message: 'Неверный запрос', ...errors });
       }
 
       const data: ProjectCreationAttributes = req.body;
 
-      const project: ProjectAttributes = await ProjectController.Create(data);
+      data.id = undefined;
+      data.managerId = req.body.user.id;
 
-      const manager: UserAttributes | null = await UserController.GetOneByCondition({
-        where: {
-          id: project.manager,
-        },
-      });
-      const team: UserAttributes[] = await UserController.GetTeamByProjectId(project.id);
-      
-      const result: ProjectResponse | null = {
-        id: project.id,
-        title: project.title,
-        description: project.description,
-        customer: project.customer,
-        dateBegin: project.dateBegin,
-        dateEnd: project.dateEnd,
-        controlPoints: project.controlPoints,
-        result: project.result,
-        manager,
-        team,
+      const project: ProjectDTO | null = await ProjectController.Create(data);
+
+      if (!project) {
+        res.status(400).json({
+          message: 'Неверный запрос',
+        });
       }
 
-      res.json({
-        message: 'Project was created',
-        project: result,
-      });
+      res.json(project);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -211,11 +131,10 @@ projectsRouter.post(
   [
     authMiddleware,
     check('role', 'Role must be longer than 1 character').isLength({ min: 1 }),
-    check('number', 'Number must be longer than 1 character').isNumeric(),
   ],
   async (
-    req: express.Request<{ id: string }>, 
-    res: express.Response
+    req: express.Request<{ id: string }>,
+    res: express.Response,
   ) => {
     try {
       const errors: Result<ValidationError> = validationResult(req);
@@ -223,19 +142,38 @@ projectsRouter.post(
       if (!errors.isEmpty()) {
         return res
           .status(400)
-          .json({ message: 'Incorrect request', ...errors });
+          .json({ message: 'Неверный запрос', ...errors });
+      }
+
+      const project: ProjectDTO | null = await ProjectController.GetOneByCondition({
+        where: {
+          id: req.params.id,
+        },
+      });
+
+      if (!project) {
+        return res
+          .status(404)
+          .json({ message: `Проект с id ${req.params.id} не найден` });
+      }
+
+      if (project.managerId !== req.body.user.id) {
+        return res
+          .status(400)
+          .json({ message: 'Добавить вакансию может только руководитель проекта' });
       }
 
       const data: VacancyCreationAttributes = req.body;
 
       data.projectId = req.params.id;
-      
-      const result = await VacancyController.Create(data);
 
-      res.json({
-        message: 'Project was created',
-        project: result,
-      });
+      if (!data.number || data.number === '') {
+        data.number = '1';
+      }
+
+      const vacancy: VacancyDTO = await VacancyController.Create(data);
+
+      res.json(vacancy);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -244,65 +182,42 @@ projectsRouter.post(
 );
 
 projectsRouter.post(
-  '/:projectId/vacancies/:vacancyId',
+  '/:projectId/vacancies/:vacancyId/addUser',
   [
     authMiddleware,
   ],
   async (
-    req: express.Request<{ 
-      projectId: string,
-      vacancyId: string,
-    }>, 
-    res: express.Response
+    req: express.Request<{
+      projectId: string;
+      vacancyId: string;
+    }>,
+    res: express.Response,
   ) => {
     try {
-      const errors: Result<ValidationError> = validationResult(req);
+      const project: ProjectDTO | null = await ProjectController.GetOneByCondition({
+        where: {
+          id: req.params.projectId,
+        },
+      });
 
-      if (!errors.isEmpty()) {
+      if (project?.team.filter((user: UserDTO) => user.id === req.body.user.id).length) {
         return res
-          .status(400)
-          .json({ message: 'Incorrect request', ...errors });
+          .status(403)
+          .json({ message: 'Пользователь уже находится в проекте на другой вакансии' });
       }
 
-      const user: UserAttributes | null = await UserController.GetOneByCondition({
-        where: {
-          id: req.body.user.id,
-        },
+      const vacancyUser: VacancyUserDTO | null = await vacancyuserController.Create({
+        userId: req.body.user.id,
+        vacancyId: req.params.vacancyId,
       });
 
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+      if (!vacancyUser) {
+        return res.status(404).json({
+          message: 'The user has not been added to the vacancy',
+        });
       }
 
-      const { vacancyId } = req.params;
-
-      const vacancy: VacancyAttributes | null = await VacancyController.GetOneByCondition({
-        where: {
-          id: vacancyId,
-        },
-      });
-
-      if (!vacancy) {
-        return res.status(404).json({ message: 'Vacancy not found' });
-      }
-
-      const vacancyUser: VacancyUserAttributes[] = await VacancyUserController.GetAllByCondition({
-        where: {
-          userId: user.id,
-          vacancyId: vacancyId,
-        }
-      })
-      
-      if (vacancyUser.length > 0) {
-        return res.status(400).json({ message: 'The user has already been added to this position' });
-      }
-
-      VacancyUserController.Create({
-        userId: user.id,
-        vacancyId: vacancyId,
-      })
-
-      res.json(user);
+      res.json(vacancyUser);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -315,15 +230,13 @@ projectsRouter.put(
   [
     authMiddleware,
     check('id', 'Id must be UUID').isUUID(),
-    check('manager', 'Manager Id must be UUID').isUUID(),
+    check('managerId', 'Manager Id must be UUID').isUUID(),
     check('customer', 'Customer must be longer than 1 character').isLength({ min: 1 }),
     check('title', 'Title must be longer than 1 character').isLength({ min: 1 }),
     check('controlPoints', 'Control Points must be longer than 1 character').isLength({ min: 1 }),
     check('description', 'Description must be longer than 1 character').isLength({
       min: 1,
     }),
-    check('dateBegin', 'Date begin must be date').isDate(),
-    check('dateEnd', 'Date end must be date').isDate(),
   ],
   async (req: express.Request, res: express.Response) => {
     try {
@@ -332,23 +245,26 @@ projectsRouter.put(
       if (!errors.isEmpty()) {
         return res
           .status(400)
-          .json({ message: 'Incorrect request', ...errors });
+          .json({ message: 'Неверный запрос', ...errors });
       }
 
       const data: ProjectCreationAttributes = req.body;
 
-      const project: ProjectAttributes | null = await ProjectController.Update(data);
-
-      if (project === null) {
-        res.json({
-          message: 'Something went wrong',
-        });
+      if (data.managerId !== req.body.user.id) {
+        return res
+          .status(400)
+          .json({ message: 'Изменить проект может только руководитель проекта' });
       }
 
-      res.json({
-        message: 'Project was updated',
-        project,
-      });
+      const project: ProjectDTO | null = await ProjectController.Update(data);
+
+      if (!project) {
+        return res
+          .status(404)
+          .json({ message: `Проект с id ${data.id} не найден` });
+      }
+
+      res.json(project);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });
@@ -366,17 +282,27 @@ projectsRouter.delete(
     try {
       const { id } = req.params;
 
-      const result: boolean = await ProjectController.DeleteById(id);
+      const project: ProjectDTO | null = await ProjectController.GetOneByCondition({
+        where: {
+          id: req.params.id,
+        },
+      });
 
-      if (!result) {
-        res.json({
-          message: `Project with id ${id} not found`,
-        });
+      if (!project) {
+        return res
+          .status(404)
+          .json({ message: `Проект с id ${id} не найден` });
       }
 
-      res.json({
-        message: 'Project was deleted',
-      });
+      if (project.managerId !== req.body.user.id) {
+        return res
+          .status(400)
+          .json({ message: 'Удалить проект может только руководитель проекта' });
+      }
+
+      await ProjectController.DeleteById(id);
+
+      res.json({});
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server Error' });

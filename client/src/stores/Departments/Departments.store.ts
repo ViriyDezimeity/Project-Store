@@ -1,11 +1,14 @@
 import { makeAutoObservable } from 'mobx';
 import {
-  axiosFetchFunction,
+  axiosFetchFunction, IResponse,
 } from '../../helpers/axiosInstance';
-import { DepartmentAttributes } from 'diploma'
+import { DepartmentAttributes, ErrorResponse } from 'diploma'
+import { HttpStatusCode } from '../../enums';
 
 export class DepartmentsStore {
   public state: 'loading' | 'loaded' | 'error' = 'loading';
+
+  private errorMessage: string | null = null;
 
   public departments: DepartmentAttributes[] | null = null;
 
@@ -14,11 +17,26 @@ export class DepartmentsStore {
     this.fetchDepartments();
   }
 
+  public setErrorMessage = (message: string | null): void => {
+    this.errorMessage = message;
+  }
+
+  public getErrorMessage = (): string | null => {
+    const errorMessage: string | null = this.errorMessage;
+    this.setErrorMessage(null);
+    return errorMessage;
+  }
+
   private fetchDepartments = async (): Promise<void> => {
     try {
-      const response: DepartmentAttributes[] = await axiosFetchFunction<DepartmentAttributes[]>('/departments');
+      const response: IResponse<DepartmentAttributes[]> | ErrorResponse = await axiosFetchFunction<DepartmentAttributes[]>('/departments');
 
-      this.departments = response;
+      if (response.status !== HttpStatusCode.OK) {
+        this.setErrorMessage((response as ErrorResponse).message);
+        return;
+      }
+
+      this.departments = (response as IResponse<DepartmentAttributes[]>).data;
       this.state = 'loaded';
     } catch (error) {
       console.error(error);

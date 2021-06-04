@@ -1,4 +1,6 @@
 import * as Sequelize from 'sequelize';
+import { DepartmentDTO } from './department';
+import { RoleDTO } from './role';
 
 export interface UserAttributes {
   id: string;
@@ -22,3 +24,8 @@ export interface UserCreationAttributes
 export interface UserInstance
   extends Sequelize.Model<UserAttributes, UserCreationAttributes>,
     UserAttributes {}
+
+export interface UserDTO extends UserAttributes {
+  department: DepartmentDTO;
+  role: RoleDTO;
+}
